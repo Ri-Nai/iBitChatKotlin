@@ -141,3 +141,11 @@ chatClient.chatStream(messages)
 - API可能随时变更，请注意更新
 - 使用Java 8运行时，确保使用兼容的依赖版本
 - 敏感信息（如badge和cookie）应保存在local.properties中且不要提交到版本控制系统
+
+## 致谢
+
+本项目参考了以下开源项目：
+- [open_ibit](https://github.com/yht0511/open_ibit)
+- [BIT_Deepseek_API](https://github.com/5Breeze/BIT_Deepseek_API)
+
+感谢这些项目的贡献者提供的宝贵参考和灵感。
