@@ -70,4 +70,20 @@ object ConfigLoader {
     fun getCookie(): String {
         return getProperty("cookie")
     }
+    
+    /**
+     * 获取用户名
+     * @return 用户名
+     */
+    fun getUsername(): String {
+        return getProperty("username")
+    }
+    
+    /**
+     * 获取密码
+     * @return 密码
+     */
+    fun getPassword(): String {
+        return getProperty("password")
+    }
 } 

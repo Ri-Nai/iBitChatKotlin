@@ -24,6 +24,9 @@ dependencies {
     // JSON序列化
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
     
+    // HTML解析 - Jsoup
+    implementation("org.jsoup:jsoup:1.16.2")
+    
     // 日志 - 使用与Java 8兼容的版本
     implementation("io.github.microutils:kotlin-logging-jvm:2.0.11")
     implementation("ch.qos.logback:logback-classic:1.2.11") // 降级到1.2.x版本，兼容Java 8

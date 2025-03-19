@@ -1,5 +1,6 @@
 package com.ibit.chat
 
+import com.ibit.chat.api.BITLoginApi
 import com.ibit.chat.api.IBitChatClient
 import com.ibit.chat.model.Message
 import com.ibit.chat.util.ConfigLoader
@@ -16,25 +17,71 @@ private val logger = KotlinLogging.logger {}
 fun main() = runBlocking {
     println("iBitChat Kotlin Demo")
     
-    // 从配置文件加载badge和cookie
-    if (!ConfigLoader.load()) {
-        println("无法加载配置文件，请确保local.properties文件存在")
-        return@runBlocking
-    }
+    val client: IBitChatClient
     
-    val badge = ConfigLoader.getBadge()
-    val cookie = ConfigLoader.getCookie()
-
-    if (badge.isBlank() || cookie.isBlank()) {
-        println("badge或cookie不能为空，请检查local.properties配置")
-        return@runBlocking
+    // 尝试从配置文件加载badge和cookie
+    if (ConfigLoader.load() && 
+        ConfigLoader.getBadge().isNotBlank() && 
+        ConfigLoader.getCookie().isNotBlank()) {
+        
+        println("从配置文件加载凭据")
+        val badge = ConfigLoader.getBadge()
+        val cookie = ConfigLoader.getCookie()
+        client = IBitChatClient(badge, cookie)
+        
+    } else {
+        // 尝试从local.properties读取用户名和密码
+        println("未找到有效的badge和cookie")
+        
+        if (ConfigLoader.load() &&
+            ConfigLoader.getUsername().isNotBlank() &&
+            ConfigLoader.getPassword().isNotBlank()) {
+            
+            val username = ConfigLoader.getUsername()
+            val password = ConfigLoader.getPassword()
+            
+            println("从配置文件加载用户名和密码")
+            println("正在使用北理工统一身份认证登录...")
+            
+            try {
+                val loginApi = BITLoginApi()
+                client = loginApi.login(username, password)
+                println("登录成功！")
+            } catch (e: Exception) {
+                logger.error(e) { "登录失败" }
+                println("登录失败: ${e.message}")
+                return@runBlocking
+            }
+            
+        } else {
+            println("配置文件中未找到登录凭据，请手动输入")
+            
+            print("请输入学号: ")
+            val username = readLine() ?: ""
+            
+            print("请输入密码: ")
+            val password = readLine() ?: ""
+            
+            if (username.isBlank() || password.isBlank()) {
+                println("学号或密码不能为空")
+                return@runBlocking
+            }
+            
+            println("正在登录...")
+            try {
+                val loginApi = BITLoginApi()
+                client = loginApi.login(username, password)
+                println("登录成功！")
+            } catch (e: Exception) {
+                logger.error(e) { "登录失败" }
+                println("登录失败: ${e.message}")
+                return@runBlocking
+            }
+        }
     }
-    
-    println("成功加载配置")
-    val client = IBitChatClient(badge, cookie)
     
     // 演示历史消息
-    val history = mutableListOf<Message>(
+    val history = mutableListOf(
         Message(role = "user", content = "今天的天气怎么样？"),
         Message(role = "assistant", content = "今天天气晴，适合出门活动！"),
     )
