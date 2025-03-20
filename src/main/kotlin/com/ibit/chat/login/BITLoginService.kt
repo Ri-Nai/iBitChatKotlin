@@ -1,7 +1,8 @@
-package com.ibit.chat.api
+package com.ibit.chat.login
 
-import com.ibit.chat.api.http.HttpClient
-import com.ibit.chat.api.util.AESUtils
+import com.ibit.chat.chat.IBitChatClient
+import com.ibit.chat.login.http.HttpClient
+import com.ibit.chat.login.util.AESUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import mu.KotlinLogging
@@ -12,9 +13,9 @@ import org.jsoup.Jsoup
 private val logger = KotlinLogging.logger {}
 
 /**
- * 北京理工大学统一身份认证登录API
+ * 北京理工大学统一身份认证登录服务
  */
-class BITLoginApi {
+class BITLoginService {
     private val bitLoginUrl = "https://login.bit.edu.cn/authserver/login?service=https%3A%2F%2Fibit.yanhekt.cn%2Fproxy%2Fv1%2Fcas%2Fcallback"
     private val iBitUrl = "https://ibit.yanhekt.cn"
 
@@ -82,9 +83,6 @@ class BITLoginApi {
             logger.error { "BIT登录失败，错误原因: ${e.message}" }
             return@withContext false
         }
-
-        
-
     }
 
     /**

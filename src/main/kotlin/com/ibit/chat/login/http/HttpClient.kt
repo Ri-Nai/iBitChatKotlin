@@ -1,4 +1,4 @@
-package com.ibit.chat.api.http
+package com.ibit.chat.login.http
 
 import mu.KotlinLogging
 import okhttp3.*

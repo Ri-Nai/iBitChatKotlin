@@ -1,4 +1,4 @@
-package com.ibit.chat.api.util
+package com.ibit.chat.login.util
 
 import java.security.SecureRandom
 import java.util.Base64

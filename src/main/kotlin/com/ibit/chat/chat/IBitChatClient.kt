@@ -1,6 +1,6 @@
-package com.ibit.chat.api
+package com.ibit.chat.chat
 
-import com.ibit.chat.model.*
+import com.ibit.chat.chat.model.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
@@ -149,7 +149,7 @@ class IBitChatClient(
         
         return historyPrompt.toString()
     }
-
+    
     /**
      * 流式聊天
      * @param query 用户查询
@@ -232,4 +232,108 @@ class IBitChatClient(
             }
         }
     }.flowOn(Dispatchers.IO) // 确保Flow在IO调度器上执行，解决上下文问题
+    /**
+     * 使用Payload对象进行流式聊天，兼容Deepseek格式
+     * @param payload 聊天请求负载
+     * @return Chunk流
+     */
+    fun chatStream(
+        payload: Payload
+    ): Flow<Chunk> = flow {
+        // 检查请求格式
+        if (payload.messages.isEmpty() || payload.messages.last().role != "user") {
+            throw IllegalArgumentException("Invalid request: Last message must be from user")
+        }
+        
+        // 提取用户查询
+        var query = payload.messages.last().content
+        
+        // 处理前面的消息
+        val prevMessages = payload.messages.dropLast(1).toMutableList()
+        
+        // 处理系统消息
+        if (prevMessages.isNotEmpty() && prevMessages.first().role == "system") {
+            query = prevMessages.removeFirst().content + query
+        }
+        
+        // 组织历史对话
+        val history = mutableListOf<Message>()
+        for (i in 0 until prevMessages.size - 1 step 2) {
+            if (i + 1 < prevMessages.size && 
+                prevMessages[i].role == "user" && 
+                prevMessages[i + 1].role == "assistant") {
+                
+                history.add(Message(role = "user", content = prevMessages[i].content))
+                history.add(Message(role = "assistant", content = prevMessages[i + 1].content))
+            }
+        }
+        
+        // 调用原始的chatStream并转换输出
+        val responseFlow = chatStream(
+            query = query,
+            history = history,
+            temperature = payload.temperature
+        )
+        
+        responseFlow.collect { chunk ->
+            if (chunk == "[DONE]") {
+                // 发送结束标志
+                val choice = Chunk.Choice(
+                    index = 0,
+                    delta = Chunk.Choice.Delta(),
+                    finish_reason = "stop"
+                )
+                
+                emit(Chunk(
+                    model = payload.model,
+                    objectType = "chat.completion.chunk",
+                    choices = listOf(choice)
+                ))
+            } else {
+                // 发送增量
+                val choice = Chunk.Choice(
+                    index = 0,
+                    delta = Chunk.Choice.Delta(content = chunk),
+                    finish_reason = null
+                )
+                
+                emit(Chunk(
+                    model = payload.model,
+                    objectType = "chat.completion.chunk",
+                    choices = listOf(choice)
+                ))
+            }
+        }
+    }.flowOn(Dispatchers.IO)
+
+    /**
+     * 简化的流式聊天接口
+     * @param messages 消息列表
+     * @return 字符串流
+     */
+    fun chatStream(
+        messages: List<Message>
+    ): Flow<String> = flow {
+        // 创建payload并调用兼容Deepseek的方法
+        val payload = Payload(
+            model = "deepseek-r1",
+            messages = messages,
+            temperature = 0.7,
+            stream = true
+        )
+        
+        chatStream(payload).collect { chunk ->
+            chunk.choices.firstOrNull()?.delta?.content?.let { content ->
+                if (content.isNotEmpty()) {
+                    emit(content)
+                }
+            }
+            
+            // 如果是最后一个chunk，发送完成信号
+            if (chunk.choices.firstOrNull()?.finish_reason == "stop") {
+                emit("[DONE]")
+            }
+        }
+    }
+
 } 

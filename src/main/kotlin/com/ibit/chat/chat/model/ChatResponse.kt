@@ -1,4 +1,4 @@
-package com.ibit.chat.model
+package com.ibit.chat.chat.model
 
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

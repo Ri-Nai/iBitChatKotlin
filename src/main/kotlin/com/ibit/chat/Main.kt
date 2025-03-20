@@ -1,11 +1,10 @@
 package com.ibit.chat
 
-import com.ibit.chat.api.BITLoginApi
-import com.ibit.chat.api.IBitChatClient
-import com.ibit.chat.model.Message
-import com.ibit.chat.util.ConfigLoader
+import com.ibit.chat.login.BITLoginService
+import com.ibit.chat.chat.IBitChatClient
+import com.ibit.chat.chat.model.Message
+import com.ibit.chat.config.ConfigLoader
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 
@@ -44,8 +43,8 @@ fun main() = runBlocking {
             println("正在使用北理工统一身份认证登录...")
             
             try {
-                val loginApi = BITLoginApi()
-                client = loginApi.login(username, password)
+                val loginService = BITLoginService()
+                client = loginService.login(username, password)
                 println("登录成功！")
             } catch (e: Exception) {
                 logger.error(e) { "登录失败" }
@@ -69,8 +68,8 @@ fun main() = runBlocking {
             
             println("正在登录...")
             try {
-                val loginApi = BITLoginApi()
-                client = loginApi.login(username, password)
+                val loginService = BITLoginService()
+                client = loginService.login(username, password)
                 println("登录成功！")
             } catch (e: Exception) {
                 logger.error(e) { "登录失败" }
@@ -82,10 +81,12 @@ fun main() = runBlocking {
     
     // 演示历史消息
     val history = mutableListOf(
+        Message(role = "system", content = "你是一个AI助手，回答用户的问题。"),
         Message(role = "user", content = "今天的天气怎么样？"),
         Message(role = "assistant", content = "今天天气晴，适合出门活动！"),
     )
-    
+    val messages = mutableListOf<Message>()
+    messages += history
     while (true) {
         print("\n请输入问题(输入'exit'退出): ")
         val query = readLine() ?: ""
@@ -100,10 +101,11 @@ fun main() = runBlocking {
         
         print("回复: ")
         val userMessage = Message(role = "user", content = query)
+        messages += userMessage
         val response = StringBuilder()
         
         try {
-            client.chatStream(query, history)
+            client.chatStream(messages)
                 .catch { e -> 
                     logger.error(e) { "聊天流处理错误" }
                     println("\n发生错误: ${e.message}")
@@ -118,13 +120,13 @@ fun main() = runBlocking {
             
             if (response.isNotEmpty()) {
                 // 将用户问题和AI回复添加到历史记录
-                history.add(userMessage)
-                history.add(Message(role = "assistant", content = response.toString()))
+                messages.add(userMessage)
+                messages.add(Message(role = "assistant", content = response.toString()))
                 
                 // 保持历史记录在合理范围内（最近5轮对话）
-                if (history.size > 10) {
-                    history.removeAt(0)
-                    history.removeAt(0)
+                if (messages.size > 10) {
+                    messages.removeAt(0)
+                    messages.removeAt(0)
                 }
             }
         } catch (e: Exception) {
