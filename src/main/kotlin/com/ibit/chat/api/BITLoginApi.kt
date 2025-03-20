@@ -72,19 +72,19 @@ class BITLoginApi {
             .add("rememberMe", "true")
             .build()
 
-        val request = HttpClient.buildRequest(bitLoginUrl, "POST", formBody)
-        val response = HttpClient.client.newCall(request).execute()
+        try {
+            val request = HttpClient.buildRequest(bitLoginUrl, "POST", formBody)
+            val response = HttpClient.client.newCall(request).execute()
 
-        if (response.code == 302) {
-            logger.info { "BIT登录成功：收到302重定向" }
+            logger.info { "BIT登录成功: ${response.code}" }
             return@withContext true
+        } catch (e: Exception) {
+            logger.error { "BIT登录失败，错误原因: ${e.message}" }
+            return@withContext false
         }
 
-        val html = response.body?.string() ?: ""
-        val errorReason = getHtmlErrorReason(html)
-        logger.error { "BIT登录失败，错误原因: $errorReason" }
         
-        return@withContext false
+
     }
 
     /**
@@ -112,7 +112,7 @@ class BITLoginApi {
         }
 
         val cookies = HttpClient.client.cookieJar.loadForRequest(iBitUrl.toHttpUrlOrNull()!!)
-        val badgeCookie = cookies.find { it.name == "badge" }
+        val badgeCookie = cookies.find { it.name == "badge_2" }
             ?: throw RuntimeException("未找到badge cookie")
 
         val cookieStr = cookies.joinToString("; ") { "${it.name}=${it.value}" }
@@ -130,6 +130,8 @@ class BITLoginApi {
         }
 
         val (badge, cookieStr) = getIBitBadge()
+
+        logger.info { "获取到ibit badge: $badge, cookieStr: $cookieStr" }
         return@withContext IBitChatClient(badge, cookieStr)
     }
 } 

@@ -2,60 +2,70 @@ package com.ibit.chat.api.http
 
 import mu.KotlinLogging
 import okhttp3.*
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import java.util.concurrent.TimeUnit
 
 private val logger = KotlinLogging.logger {}
 
+/**
+ * HTTP客户端工具类
+ */
 object HttpClient {
+    // 默认请求头
     val defaultHeaders = mapOf(
-        "Referer" to "https://login.bit.edu.cn/authserver/login",
-        "Host" to "login.bit.edu.cn",
-        "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:103.0) Gecko/20100101 Firefox/103.0"
+        "User-Agent" to "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
     )
 
-    val client = OkHttpClient.Builder()
-        .followRedirects(false)
-        .followSslRedirects(false)
-        .cookieJar(object : CookieJar {
-            private val cookieStore = mutableMapOf<String, List<Cookie>>()
+    // CookieJar实例
+    private val cookieJar = CookieJarImpl()
 
-            override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) {
-                val host = url.host
-                cookieStore[host] = cookies
-                logger.debug { "保存Cookie: $host -> ${cookies.joinToString(", ") { it.name + "=" + it.value }}" }
-            }
+    // 创建OkHttpClient实例
+    val client: OkHttpClient by lazy {
+        OkHttpClient.Builder()
+            .followRedirects(true)
+            .followSslRedirects(true)
+            .cookieJar(cookieJar)
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .build()
+    }
 
-            override fun loadForRequest(url: HttpUrl): List<Cookie> {
-                val host = url.host
-                val cookies = cookieStore[host] ?: emptyList()
-                logger.debug { "加载Cookie: $host -> ${cookies.joinToString(", ") { it.name + "=" + it.value }}" }
-                return cookies
-            }
-        })
-        .build()
-
-    fun buildRequest(url: String, method: String = "GET", body: RequestBody? = null): Request {
-        val builder = Request.Builder()
+    /**
+     * 构建请求
+     */
+    fun buildRequest(
+        url: String,
+        method: String = "GET",
+        body: RequestBody? = null,
+        headers: Map<String, String> = emptyMap()
+    ): Request {
+        val requestBuilder = Request.Builder()
             .url(url)
 
         // 添加默认请求头
-        defaultHeaders.forEach { (key, value) -> 
-            builder.addHeader(key, value)
+        defaultHeaders.forEach { (name, value) ->
+            requestBuilder.addHeader(name, value)
         }
 
-        // 添加Cookie头
-        val cookieStr = client.cookieJar.loadForRequest(url.toHttpUrlOrNull()!!)
-            .joinToString("; ") { "${it.name}=${it.value}" }
-        if (cookieStr.isNotEmpty()) {
-            builder.addHeader("Cookie", cookieStr)
-            logger.debug { "添加Cookie头: $cookieStr" }
+        // 添加自定义请求头
+        headers.forEach { (name, value) ->
+            requestBuilder.addHeader(name, value)
         }
 
+        // 根据不同的HTTP方法设置请求体
         when (method.uppercase()) {
-            "POST" -> builder.post(body ?: FormBody.Builder().build())
-            else -> builder.get()
+            "GET" -> requestBuilder.get()
+            "POST" -> requestBuilder.post(body ?: FormBody.Builder().build())
+            "PUT" -> requestBuilder.put(body ?: FormBody.Builder().build())
+            "DELETE" -> requestBuilder.delete(body)
+            else -> throw IllegalArgumentException("不支持的HTTP方法: $method")
         }
 
-        return builder.build()
+        return requestBuilder.build()
     }
+
+    /**
+     * 获取CookieJar实例
+     */
+    fun getCookieJar(): CookieJarImpl = cookieJar
 } 
