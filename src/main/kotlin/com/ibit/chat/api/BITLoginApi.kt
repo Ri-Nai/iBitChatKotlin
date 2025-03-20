@@ -15,26 +15,16 @@ private val logger = KotlinLogging.logger {}
  * 北京理工大学统一身份认证登录API
  */
 class BITLoginApi {
-    private val bitLoginUrl = "https://login.bit.edu.cn/authserver/login"
+    private val bitLoginUrl = "https://login.bit.edu.cn/authserver/login?service=https%3A%2F%2Fibit.yanhekt.cn%2Fproxy%2Fv1%2Fcas%2Fcallback"
     private val iBitUrl = "https://ibit.yanhekt.cn"
+
+    private val errorPattern = "<span id=\"showErrorTip\">(.*?)</span>".toRegex()
 
     /**
      * 从HTML中提取错误信息
      */
-    private fun getHtmlErrorReason(html: String): String {
-        val findKey = "<span id=\"showErrorTip\">"
-        val start = html.indexOf(findKey)
-        if (start == -1) return ""
-        
-        var count = 0
-        var i = start
-        do {
-            if (i + 1 < html.length && html[i] == '<' && html[i + 1] == 's') count++
-            if (i + 1 < html.length && html[i] == '<' && html[i + 1] == '/') count--
-            i++
-        } while (count > 0 && i < html.length)
-        
-        return html.substring(start + findKey.length, i - 1 - findKey.length)
+    fun getHtmlErrorReason(html: String): String {
+        return errorPattern.find(html)?.groupValues?.get(1) ?: ""
     }
 
     /**
@@ -83,7 +73,7 @@ class BITLoginApi {
             .build()
 
         val request = HttpClient.buildRequest(bitLoginUrl, "POST", formBody)
-        var response = HttpClient.client.newCall(request).execute()
+        val response = HttpClient.client.newCall(request).execute()
 
         if (response.code == 302) {
             logger.info { "BIT登录成功：收到302重定向" }
