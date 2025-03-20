@@ -25,8 +25,9 @@ private val logger = KotlinLogging.logger {}
  */
 class IBitChatClient(
     private val badge: String,
-    private val cookie: String
 ) {
+    private val cookie: String
+        get() = "badge_2=$badge"
     private val json = Json { ignoreUnknownKeys = true }
     private val baseUrl = "https://ibit.yanhekt.cn"
     private val client = OkHttpClient.Builder()

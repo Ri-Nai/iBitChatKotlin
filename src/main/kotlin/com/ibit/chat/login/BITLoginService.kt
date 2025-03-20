@@ -88,7 +88,7 @@ class BITLoginService {
     /**
      * 获取ibit.yanhekt.cn的badge cookie
      */
-    private suspend fun getIBitBadge(): Pair<String, String> = withContext(Dispatchers.IO) {
+    private suspend fun getIBitBadge(): String = withContext(Dispatchers.IO) {
         val request = HttpClient.buildRequest(iBitUrl)
         var response = HttpClient.client.newCall(request).execute()
         
@@ -101,7 +101,7 @@ class BITLoginService {
                 val redirectRequest = HttpClient.buildRequest(redirectUrl)
                 HttpClient.client.newCall(redirectRequest).execute()
                 
-                return@withContext Pair(badgeFromPc, cookieStr)
+                return@withContext badgeFromPc
             }
         }
 
@@ -116,20 +116,20 @@ class BITLoginService {
         val cookieStr = cookies.joinToString("; ") { "${it.name}=${it.value}" }
         logger.info { "成功获取ibit badge: ${badgeCookie.value}" }
         
-        return@withContext Pair(badgeCookie.value, cookieStr)
+        return@withContext badgeCookie.value
     }
 
     /**
      * 执行登录流程并获取IBitChatClient实例
      */
-    suspend fun login(username: String, password: String): IBitChatClient = withContext(Dispatchers.IO) {
+    suspend fun login(username: String, password: String): String = withContext(Dispatchers.IO) {
         if (!loginBIT(username, password)) {
             throw RuntimeException("BIT统一身份认证登录失败")
         }
 
-        val (badge, cookieStr) = getIBitBadge()
+        val badge = getIBitBadge()
 
-        logger.info { "获取到ibit badge: $badge, cookieStr: $cookieStr" }
-        return@withContext IBitChatClient(badge, cookieStr)
+        logger.info { "获取到ibit badge: $badge" }
+        return@withContext badge
     }
 } 

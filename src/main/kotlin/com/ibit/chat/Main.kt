@@ -20,17 +20,15 @@ fun main() = runBlocking {
     
     // 尝试从配置文件加载badge和cookie
     if (ConfigLoader.load() && 
-        ConfigLoader.getBadge().isNotBlank() && 
-        ConfigLoader.getCookie().isNotBlank()) {
+        ConfigLoader.getBadge().isNotBlank()) {
         
         println("从配置文件加载凭据")
         val badge = ConfigLoader.getBadge()
-        val cookie = ConfigLoader.getCookie()
-        client = IBitChatClient(badge, cookie)
+        client = IBitChatClient(badge)
         
     } else {
         // 尝试从local.properties读取用户名和密码
-        println("未找到有效的badge和cookie")
+        println("未找到有效的badge")
         
         if (ConfigLoader.load() &&
             ConfigLoader.getUsername().isNotBlank() &&
@@ -44,7 +42,8 @@ fun main() = runBlocking {
             
             try {
                 val loginService = BITLoginService()
-                client = loginService.login(username, password)
+                val badge = loginService.login(username, password)
+                client = IBitChatClient(badge)
                 println("登录成功！")
             } catch (e: Exception) {
                 logger.error(e) { "登录失败" }
@@ -69,7 +68,8 @@ fun main() = runBlocking {
             println("正在登录...")
             try {
                 val loginService = BITLoginService()
-                client = loginService.login(username, password)
+                val badge = loginService.login(username, password)
+                client = IBitChatClient(badge)
                 println("登录成功！")
             } catch (e: Exception) {
                 logger.error(e) { "登录失败" }
