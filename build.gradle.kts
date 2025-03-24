@@ -20,16 +20,17 @@ dependencies {
     
     // HTTP客户端 - OkHttp
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    
+    implementation("com.squareup.retrofit2:retrofit:2.9.0")
+    implementation("com.squareup.retrofit2:converter-gson:2.9.0")
     // JSON序列化
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
-    
+    implementation("com.google.code.gson:gson:2.11.0")
+
     // HTML解析 - Jsoup
     implementation("org.jsoup:jsoup:1.16.2")
     
     // 日志 - 使用与Java 8兼容的版本
     implementation("io.github.microutils:kotlin-logging-jvm:2.0.11")
-    implementation("ch.qos.logback:logback-classic:1.2.11") // 降级到1.2.x版本，兼容Java 8
+    implementation("ch.qos.logback:logback-classic:1.4.12") // 降级到1.2.x版本，兼容Java 8
     
     // 测试
     testImplementation(kotlin("test"))

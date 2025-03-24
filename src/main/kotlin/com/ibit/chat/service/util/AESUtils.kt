@@ -1,7 +1,7 @@
-package com.ibit.chat.login.util
+package com.ibit.chat.service.util
 
 import java.security.SecureRandom
-import java.util.Base64
+import java.util.*
 import javax.crypto.Cipher
 import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec

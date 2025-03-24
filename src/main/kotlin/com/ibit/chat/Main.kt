@@ -1,180 +1,108 @@
 package com.ibit.chat
 
-import com.ibit.chat.login.BITLoginService
-import com.ibit.chat.chat.IBitChatClient
-import com.ibit.chat.chat.model.Message
-import com.ibit.chat.config.ConfigLoader
-import kotlinx.coroutines.flow.catch
+import com.ibit.chat.model.Message
+import com.ibit.chat.service.ServiceManager
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
+import java.io.File
+import java.util.*
 
+// 创建日志记录器
 private val logger = KotlinLogging.logger {}
 
 /**
  * 主函数，用于测试iBit聊天客户端
  */
 fun main() = runBlocking {
-    println("iBitChat Kotlin Demo")
-    
-    val client = initializeClient() ?: return@runBlocking
-    
-    startChatLoop(client)
-    
-    println("感谢使用iBitChat Kotlin Demo!")
-} 
+    logger.info { "启动iBitChat Kotlin客户端" }
+    val propertiesFile = File("local.properties")
+    val properties = loadProperties(propertiesFile)
 
-/**
- * 初始化聊天客户端
- * @return 初始化成功返回客户端实例，失败返回null
- */
-private suspend fun initializeClient(): IBitChatClient? {
-    return tryLoginWithBadge() ?: tryLoginWithSavedCredentials() ?: tryLoginWithUserInput()
-}
-
-/**
- * 尝试使用配置中的Badge登录
- * @return 成功返回客户端实例，失败返回null
- */
-private fun tryLoginWithBadge(): IBitChatClient? {
-    if (ConfigLoader.load() && ConfigLoader.getBadge().isNotBlank()) {
-        println("从配置文件加载凭据")
-        val badge = ConfigLoader.getBadge()
-        return IBitChatClient(badge)
+    // 检查是否需要初始化配置
+    if (!isConfigValid(properties)) {
+        initializeConfig(properties, propertiesFile)
     }
-    println("未找到有效的badge")
-    return null
-}
 
-/**
- * 尝试使用配置中保存的用户名和密码登录
- * @return 成功返回客户端实例，失败返回null
- */
-private suspend fun tryLoginWithSavedCredentials(): IBitChatClient? {
-    if (!ConfigLoader.load() || 
-        ConfigLoader.getUsername().isBlank() || 
-        ConfigLoader.getPassword().isBlank()) {
-        return null
-    }
-    
-    val username = ConfigLoader.getUsername()
-    val password = ConfigLoader.getPassword()
-    
-    println("从配置文件加载用户名和密码")
-    println("正在使用北理工统一身份认证登录...")
-    
-    return loginWithCredentials(username, password)
-}
+    // 获取用户名和密码
+    val username = properties.getProperty("username")
+    val password = properties.getProperty("password")
 
-/**
- * 尝试使用用户输入的凭据登录
- * @return 成功返回客户端实例，失败返回null
- */
-private suspend fun tryLoginWithUserInput(): IBitChatClient? {
-    println("配置文件中未找到登录凭据，请手动输入")
-    
-    print("请输入学号: ")
-    val username = readLine() ?: ""
-    
-    print("请输入密码: ")
-    val password = readLine() ?: ""
-    
-    if (username.isBlank() || password.isBlank()) {
-        println("学号或密码不能为空")
-        return null
-    }
-    
-    println("正在登录...")
-    return loginWithCredentials(username, password)
-}
+    // 执行登录
+    performLogin(username, password)
 
-/**
- * 使用用户名和密码登录
- * @param username 用户名
- * @param password 密码
- * @return 成功返回客户端实例，失败返回null
- */
-private suspend fun loginWithCredentials(username: String, password: String): IBitChatClient? {
-    return try {
-        val loginService = BITLoginService()
-        val badge = loginService.login(username, password)
-        val client = IBitChatClient(badge)
-        println("登录成功！")
-        client
-    } catch (e: Exception) {
-        logger.error(e) { "登录失败" }
-        println("登录失败: ${e.message}")
-        null
-    }
-}
-
-/**
- * 启动聊天循环
- * @param client 聊天客户端
- */
-private suspend fun startChatLoop(client: IBitChatClient) {
-    // 演示历史消息
-    val history = mutableListOf(
-        Message(role = "system", content = "你是一个AI助手，回答用户的问题。"),
-        Message(role = "user", content = "今天的天气怎么样？"),
-        Message(role = "assistant", content = "今天天气晴，适合出门活动！"),
-    )
-    val messages = mutableListOf<Message>()
-    messages += history
-    
+    var messages = listOf<Message>()
     while (true) {
-        print("\n请输入问题(输入'exit'退出): ")
-        val query = readLine() ?: ""
-        
-        if (query.equals("exit", ignoreCase = true)) {
+        val message = readln("请输入消息（输入exit退出）： ")
+        if (message == "exit") {
             break
         }
-        
-        if (query.isBlank()) {
-            continue
+        messages += Message(role = "user", content = message)
+        var totalContent = ""
+        ServiceManager.iBitService.streamChat(messages).collect { result ->
+            result.onSuccess {
+                totalContent += it
+                print(it)
+            }
+            result.onFailure {
+                logger.error { "聊天失败: ${it.message}" }
+            }
         }
-        
-        handleChatQuery(client, messages, query)
+        messages += Message(role = "assistant", content = totalContent)
+    }
+    logger.info { "聊天客户端退出" }
+    println("感谢使用iBitChat Kotlin Demo!")
+}
+
+
+fun readln(prompt: String): String {
+    print(prompt)
+    return readlnOrNull() ?: ""
+}
+
+/**
+ * 加载配置文件中的属性
+ */
+private fun loadProperties(file: File): Properties {
+    return if (file.exists()) {
+        Properties().apply { load(file.inputStream()) }
+    } else {
+        logger.info { "配置文件不存在，将创建新文件" }
+        Properties()
     }
 }
 
 /**
- * 处理聊天查询
- * @param client 聊天客户端
- * @param messages 消息历史
- * @param query 用户查询
+ * 检查配置是否有效（包含 username 和 password）
  */
-private suspend fun handleChatQuery(client: IBitChatClient, messages: MutableList<Message>, query: String) {
-    print("回复: ")
-    val userMessage = Message(role = "user", content = query)
-    messages.add(userMessage)
-    val response = StringBuilder()
-    
+private fun isConfigValid(properties: Properties): Boolean {
+    return properties.containsKey("username") && properties.containsKey("password")
+}
+
+/**
+ * 初始化配置（用户输入并保存到文件）
+ */
+private fun initializeConfig(properties: Properties, file: File) {
+    logger.info { "未在配置中找到 username 和 password，开始初始化配置" }
+    val username = readln("请输入 username: ")
+    val password = readln("请输入 password: ")
+
+    properties.setProperty("username", username)
+    properties.setProperty("password", password)
+
+    // 保存配置到文件
+    file.outputStream().use { properties.store(it, "Configuration for login") }
+    logger.info { "配置已保存: username=$username, password=$password" }
+}
+
+/**
+ * 执行登录操作
+ */
+private suspend fun performLogin(username: String, password: String) {
+    logger.info { "尝试登录: username=$username, password=$password" }
     try {
-        client.chatStream(messages)
-            .catch { e -> 
-                logger.error(e) { "聊天流处理错误" }
-                println("\n发生错误: ${e.message}")
-            }
-            .collect { chunk ->
-                if (chunk == "[DONE]") {
-                    return@collect
-                }
-                print(chunk)
-                response.append(chunk)
-            }
-        
-        if (response.isNotEmpty()) {
-            // 将AI回复添加到历史记录
-            messages.add(Message(role = "assistant", content = response.toString()))
-            
-            // 保持历史记录在合理范围内（最近5轮对话）
-            if (messages.size > 10) {
-                messages.removeAt(0)
-                messages.removeAt(0)
-            }
-        }
+        ServiceManager.loginService.login(username, password)
+        logger.info { "登录成功" }
     } catch (e: Exception) {
-        logger.error(e) { "聊天过程发生异常" }
-        println("\n发生错误: ${e.message}")
+        logger.error { "登录失败: ${e.message}" }
     }
-} 
+}
