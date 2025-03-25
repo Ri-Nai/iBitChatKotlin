@@ -153,24 +153,6 @@ fun main() = runBlocking {
    - 使用Kotlin Flow的catch操作符处理流中的错误
    - 自动重试机制
 
-使用示例：
-
-```kotlin
-try {
-    client.chatStream(query, history)
-        .catch { e -> 
-            // 处理流错误
-            println("聊天出错: ${e.message}")
-        }
-        .collect { chunk ->
-            // 处理响应
-            print(chunk)
-        }
-} catch (e: Exception) {
-    // 处理其他错误
-    println("系统错误: ${e.message}")
-}
-```
 
 ## 注意事项
 
