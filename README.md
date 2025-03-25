@@ -18,23 +18,18 @@
 
 ```
 src/main/kotlin/com/ibit/chat/
-├── chat/                       # 聊天功能实现
-│   ├── IBitChatClient.kt       # 主要API实现
-│   └── BITLoginApi.kt          # 统一身份认证登录实现
-├── model/                      # 数据模型
-│   ├── Message.kt              # 消息模型
-│   ├── ChatRequest.kt          # 聊天请求模型
-│   └── ...                     # 其他模型
-├── config/                     # 配置文件
-│   └── ConfigLoader.kt         # 配置加载工具
-├── login/                      # 登录功能实现
-│    ├── BITLoginService.kt     # 统一身份认证登录实现
-│    ├── http/                  # HTTP相关实现
-│    │   ├── CookieJarImpl.kt   # Cookie处理实现
-│    │   └── HttpClient.kt      # HTTP客户端
-│    └── util/                  # 工具类
-│        └── AESUtils.kt        # AES加密工具
-└── Main.kt                     # 测试主函数
+├── service/                    # 服务层实现
+│   ├── ServiceManager.kt       # 服务管理器
+│   ├── base/                  # 基础服务实现
+│   └── util/                  # 工具类
+├── network/                   # 网络相关实现
+│   └── ...                    # 网络请求相关类
+├── model/                     # 数据模型
+│   ├── Message.kt             # 消息模型
+│   └── ...                    # 其他模型
+├── config/                    # 配置文件
+│   └── ConfigLoader.kt        # 配置加载工具
+└── Main.kt                    # 测试主函数
 
 ```
 
@@ -84,32 +79,47 @@ cd iBitChatKotlin
 ### 使用示例
 
 ```kotlin
-import com.ibit.chat.api.IBitChatClient
-import com.ibit.chat.api.BITLoginApi
 import com.ibit.chat.model.Message
-import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.collect
+import com.ibit.chat.service.ServiceManager
 import kotlinx.coroutines.runBlocking
 
 fun main() = runBlocking {
-    // 方式1：使用badge和cookie
-    val client = IBitChatClient(badge, cookie)
-    
-    // 方式2：使用学号密码登录
-    val loginApi = BITLoginApi()
-    val client = loginApi.login(username, password)
-    
-    // 准备历史消息
-    val history = mutableListOf(
-        Message(role = "user", content = "你好，请介绍一下自己")
-    )
-    
+    // 初始化配置（如果需要）
+    val properties = loadProperties(File("local.properties"))
+    if (!isConfigValid(properties)) {
+        initializeConfig(properties, File("local.properties"))
+    }
+
+    // 获取用户名和密码
+    val username = properties.getProperty("username")
+    val password = properties.getProperty("password")
+
+    // 执行登录
+    ServiceManager.loginService.login(username, password)
+
+    // 准备消息历史
+    var messages = listOf<Message>()
+
     // 发送消息并流式接收回复
-    client.chatStream("你好", history)
-        .catch { e -> println("发生错误: ${e.message}") }
-        .collect { chunk ->
-            print(chunk) // 打印每个回复片段
+    while (true) {
+        val message = readln("请输入消息（输入exit退出）： ")
+        if (message == "exit") break
+
+        messages += Message(role = "user", content = message)
+        var totalContent = ""
+        
+        ServiceManager.iBitService.streamChat(messages).collect { result ->
+            result.onSuccess {
+                totalContent += it
+                print(it)
+            }
+            result.onFailure {
+                println("聊天失败: ${it.message}")
+            }
         }
+        
+        messages += Message(role = "assistant", content = totalContent)
+    }
 }
 ```
 
